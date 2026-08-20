@@ -1,0 +1,10 @@
+# secrets — never commit these
+.env
+*.key
+
+# dependencies
+node_modules/
+
+# system files
+.DS_Store
+Thumbs.db
