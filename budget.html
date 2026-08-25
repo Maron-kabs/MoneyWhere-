@@ -1,34 +1,32 @@
-
-
-Budget · HTML
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Kudi — know where your cedis go</title>
- 
+
 <!-- ============================================================
      Kudi — a simple budget tracker for students in Ghana
      (rename it to anything you like — just change the .brand text)
- 
+
      What it does:
        - Log income (MoMo in, allowance...) and expenses
        - Sort spending into categories
        - Set a weekly or monthly budget limit + see a live meter
        - See a category breakdown chart and a weekly summary
+       - Clear all entries or export them to CSV
        - Saves on your device with localStorage (safe fallback if blocked)
- 
+
      HOW TO EXTEND:
        - Add a category: edit EXPENSE_CATS or INCOME_CATS below.
        - Everything reads from the `state` object, so the logic is
          all in one place: change state, then call render().
      ============================================================ -->
- 
+
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
- 
+
 <style>
   :root {
     --paper:  #F2F1EC;
@@ -41,12 +39,12 @@ Budget · HTML
     --gold:   #E3B23C;   /* limit warning */
     --line:   rgba(28,29,34,0.12);
     --line-2: rgba(28,29,34,0.22);
- 
+
     --display: "Space Grotesk", system-ui, sans-serif;
     --body:    "Inter", system-ui, sans-serif;
     --mono:    "JetBrains Mono", ui-monospace, monospace;
   }
- 
+
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
@@ -58,7 +56,7 @@ Budget · HTML
     -webkit-font-smoothing: antialiased;
   }
   .wrap { width: min(920px, 92vw); margin: 0 auto; }
- 
+
   /* ---------- header ---------- */
   header.site { padding: 1.6rem 0 0.4rem; }
   .brand {
@@ -76,7 +74,7 @@ Budget · HTML
     font-family: var(--body); font-weight: 500; font-size: 0.82rem;
     color: var(--muted); margin-left: 0.2rem;
   }
- 
+
   /* ---------- balance strip ---------- */
   .balance {
     display: grid; grid-template-columns: repeat(3, 1fr);
@@ -95,7 +93,7 @@ Budget · HTML
   }
   .amount.pos { color: var(--mint); }
   .amount.neg { color: var(--clay); }
- 
+
   /* ---------- budget meter ---------- */
   .meter-card {
     background: var(--card); border: 1px solid var(--line);
@@ -125,11 +123,11 @@ Budget · HTML
     margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px dashed var(--line-2);
   }
   .set-limit label { font-size: 0.85rem; color: var(--muted); }
- 
+
   /* ---------- two-column body ---------- */
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
   @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
- 
+
   .card {
     background: var(--card); border: 1px solid var(--line);
     border-radius: 16px; padding: 1.3rem 1.4rem;
@@ -138,7 +136,15 @@ Budget · HTML
     font-family: var(--display); font-weight: 600; font-size: 1.05rem;
     margin: 0 0 1rem;
   }
- 
+
+  /* card header with action buttons (Recent entries) */
+  .card-head {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 0.6rem; margin-bottom: 1rem;
+  }
+  .card-head h3 { margin: 0; }
+  .head-actions { display: flex; gap: 0.4rem; }
+
   /* ---------- add-entry form ---------- */
   .kind-toggle { display: flex; gap: 0.5rem; margin-bottom: 0.9rem; }
   .kind-btn {
@@ -149,7 +155,7 @@ Budget · HTML
   }
   .kind-btn.active[data-kind="expense"] { background: var(--clay); color: #fff; border-color: var(--clay); }
   .kind-btn.active[data-kind="income"]  { background: var(--mint); color: #fff; border-color: var(--mint); }
- 
+
   .field { margin-bottom: 0.7rem; }
   .field label {
     display: block; font-family: var(--mono); font-size: 0.68rem;
@@ -163,9 +169,9 @@ Budget · HTML
   }
   input:focus, select:focus { outline: 2px solid var(--gold); outline-offset: 1px; border-color: var(--teal); }
   input.amount-in { font-family: var(--mono); font-weight: 600; }
- 
+
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
- 
+
   .btn {
     font-family: var(--body); font-weight: 600; font-size: 0.95rem;
     border: none; border-radius: 10px; padding: 0.7rem 1.2rem;
@@ -178,8 +184,11 @@ Budget · HTML
     background: var(--teal); color: var(--paper);
     padding: 0.5rem 0.9rem; font-size: 0.85rem;
   }
+  /* outline variant for the lighter action (Export) */
+  .btn-sm.ghost { background: var(--paper); color: var(--teal); border: 1.5px solid var(--line-2); }
+  .btn-sm.ghost:hover { border-color: var(--teal); }
   :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
- 
+
   /* ---------- category chart ---------- */
   .cat-row { margin-bottom: 0.7rem; }
   .cat-head {
@@ -189,7 +198,7 @@ Budget · HTML
   .cat-head .amt { font-family: var(--mono); font-weight: 600; }
   .cat-track { height: 9px; background: var(--paper); border-radius: 999px; overflow: hidden; border: 1px solid var(--line); }
   .cat-bar { height: 100%; border-radius: 999px; background: var(--teal); transition: width 0.5s ease; }
- 
+
   /* ---------- weekly summary ---------- */
   .week-total { font-family: var(--mono); font-weight: 700; font-size: 1.3rem; margin-bottom: 0.9rem; }
   .week-chart { display: flex; align-items: flex-end; gap: 0.5rem; height: 110px; }
@@ -200,7 +209,7 @@ Budget · HTML
   }
   .day-bar.today { background: var(--clay); }
   .day-lbl { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
- 
+
   /* ---------- entries list ---------- */
   .entries { list-style: none; padding: 0; margin: 0; }
   .entry {
@@ -227,11 +236,11 @@ Budget · HTML
     font-size: 1.1rem; line-height: 1; padding: 0.2rem 0.4rem; border-radius: 6px;
   }
   .entry .del:hover { color: var(--clay); background: var(--paper); }
- 
+
   .empty { color: var(--muted); font-size: 0.9rem; padding: 0.8rem 0; }
- 
+
   .full-width { grid-column: 1 / -1; }
- 
+
   footer.site {
     padding: 1.5rem 0 3rem; font-family: var(--mono);
     font-size: 0.75rem; color: var(--muted); text-align: center;
@@ -242,14 +251,14 @@ Budget · HTML
     margin-bottom: 1rem;
   }
   .storage-warn.show { display: block; }
- 
+
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; scroll-behavior: auto; }
   }
 </style>
 </head>
 <body>
- 
+
 <header class="site">
   <div class="wrap">
     <div class="brand">
@@ -259,13 +268,13 @@ Budget · HTML
     </div>
   </div>
 </header>
- 
+
 <main class="wrap">
- 
+
   <div class="storage-warn" id="storageWarn">
     Heads up: your browser is blocking saved data here, so entries will reset when you close the page. It saves normally when you run it from your own site.
   </div>
- 
+
   <!-- balance strip -->
   <section class="balance">
     <div class="cell">
@@ -281,7 +290,7 @@ Budget · HTML
       <div class="amount" id="balance">₵0.00</div>
     </div>
   </section>
- 
+
   <!-- budget meter -->
   <section class="meter-card">
     <div class="meter-top">
@@ -290,7 +299,7 @@ Budget · HTML
     </div>
     <div class="meter-track"><div class="meter-fill" id="meterFill"></div></div>
     <div class="meter-note" id="meterNote">Set a limit below to track your spending against it.</div>
- 
+
     <div class="set-limit">
       <label for="limitInput">Set limit</label>
       <input class="amount-in" id="limitInput" type="number" min="0" step="1" placeholder="e.g. 200" style="max-width:120px;" />
@@ -301,9 +310,9 @@ Budget · HTML
       <button class="btn btn-sm" id="saveLimit">Save limit</button>
     </div>
   </section>
- 
+
   <div class="grid2">
- 
+
     <!-- add entry -->
     <section class="card">
       <h3>Add an entry</h3>
@@ -331,33 +340,39 @@ Budget · HTML
       </div>
       <button class="btn btn-add" id="addBtn">Add entry</button>
     </section>
- 
+
     <!-- category breakdown -->
     <section class="card">
       <h3>Where your money goes</h3>
       <div id="catChart"></div>
     </section>
- 
+
     <!-- weekly summary -->
     <section class="card">
       <h3>This week</h3>
       <div class="week-total" id="weekTotal">₵0.00</div>
       <div class="week-chart" id="weekChart"></div>
     </section>
- 
+
     <!-- entries list -->
     <section class="card">
-      <h3>Recent entries</h3>
+      <div class="card-head">
+        <h3>Recent entries</h3>
+        <div class="head-actions">
+          <button class="btn btn-sm ghost" id="exportCsv">Export CSV</button>
+          <button class="btn btn-sm" id="clearAll">Clear all</button>
+        </div>
+      </div>
       <ul class="entries" id="entryList"></ul>
     </section>
- 
+
   </div>
 </main>
- 
+
 <footer class="site">
   Kudi · a learning project · your data stays on your device
 </footer>
- 
+
 <script>
 /* ============================================================
    CATEGORIES — edit these lists to add your own.
@@ -365,19 +380,19 @@ Budget · HTML
 const EXPENSE_CATS = ["Food / Chop", "Transport", "Data / Airtime", "Books / Printing",
                       "Rent / Hostel", "Entertainment", "Savings", "Other"];
 const INCOME_CATS  = ["Allowance", "MoMo received", "Part-time", "Gift", "Other"];
- 
+
 /* ============================================================
    STATE + STORAGE
    ============================================================ */
 const STORAGE_KEY = "kudi_budget_v1";
 let storageOK = true;
- 
+
 let state = {
   limit: 0,            // 0 = no limit set
   period: "weekly",    // "weekly" | "monthly"
   entries: []          // { id, kind, amount, category, note, date }
 };
- 
+
 function save() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -386,7 +401,7 @@ function save() {
     document.getElementById("storageWarn").classList.add("show");
   }
 }
- 
+
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -396,7 +411,7 @@ function load() {
     document.getElementById("storageWarn").classList.add("show");
   }
 }
- 
+
 /* ============================================================
    HELPERS
    ============================================================ */
@@ -426,7 +441,7 @@ function inThisMonth(iso) {
   const d = new Date(iso);
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
- 
+
 /* ============================================================
    RENDER — redraws everything from `state`
    ============================================================ */
@@ -434,32 +449,32 @@ function render() {
   const income  = state.entries.filter(e => e.kind === "income").reduce((s, e) => s + e.amount, 0);
   const expense = state.entries.filter(e => e.kind === "expense").reduce((s, e) => s + e.amount, 0);
   const balance = income - expense;
- 
+
   document.getElementById("totIncome").textContent  = fmt(income);
   document.getElementById("totExpense").textContent = fmt(expense);
   const balEl = document.getElementById("balance");
   balEl.textContent = fmt(balance);
   balEl.className = "amount " + (balance < 0 ? "neg" : "pos");
- 
+
   renderMeter();
   renderCatChart();
   renderWeek();
   renderList();
 }
- 
+
 function renderMeter() {
   const title = document.getElementById("meterTitle");
   const figs  = document.getElementById("meterFigs");
   const fill  = document.getElementById("meterFill");
   const note  = document.getElementById("meterNote");
- 
+
   const inPeriod = state.period === "weekly" ? inThisWeek : inThisMonth;
   const spent = state.entries
     .filter(e => e.kind === "expense" && inPeriod(e.date))
     .reduce((s, e) => s + e.amount, 0);
- 
+
   title.textContent = state.period === "weekly" ? "Budget this week" : "Budget this month";
- 
+
   if (!state.limit || state.limit <= 0) {
     figs.textContent = "No limit set";
     fill.style.width = "0%";
@@ -468,12 +483,12 @@ function renderMeter() {
     note.textContent = "Set a limit below to track your spending against it.";
     return;
   }
- 
+
   const pct = Math.min((spent / state.limit) * 100, 100);
   const left = state.limit - spent;
   fill.style.width = pct + "%";
   figs.innerHTML = `<b>${fmt(spent)}</b> of ${fmt(state.limit)}`;
- 
+
   if (spent > state.limit) {
     fill.style.background = "var(--clay)";
     note.className = "meter-note over";
@@ -488,7 +503,7 @@ function renderMeter() {
     note.textContent = `${fmt(left)} left to spend this ${state.period === "weekly" ? "week" : "month"}.`;
   }
 }
- 
+
 function renderCatChart() {
   const mount = document.getElementById("catChart");
   const totals = {};
@@ -496,7 +511,7 @@ function renderCatChart() {
     totals[e.category] = (totals[e.category] || 0) + e.amount;
   });
   const rows = Object.entries(totals).sort((a, b) => b[1] - a[1]);
- 
+
   if (rows.length === 0) {
     mount.innerHTML = `<p class="empty">No spending yet. Add an expense to see the breakdown.</p>`;
     return;
@@ -508,21 +523,21 @@ function renderCatChart() {
       <div class="cat-track"><div class="cat-bar" style="width:${(amt / max * 100)}%"></div></div>
     </div>`).join("");
 }
- 
+
 function renderWeek() {
   const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const start = startOfWeek(new Date());
   const buckets = [0, 0, 0, 0, 0, 0, 0];
   let weekTotal = 0;
- 
+
   state.entries.filter(e => e.kind === "expense").forEach(e => {
     const d = new Date(e.date);
     const diff = Math.floor((d - start) / 86400000);
     if (diff >= 0 && diff < 7) { buckets[diff] += e.amount; weekTotal += e.amount; }
-  });  
- 
+  });
+
   document.getElementById("weekTotal").textContent = fmt(weekTotal) + " spent";
- 
+
   const max = Math.max(...buckets, 1);
   const todayIdx = (new Date().getDay() + 6) % 7;
   document.getElementById("weekChart").innerHTML = labels.map((lbl, i) => `
@@ -531,7 +546,7 @@ function renderWeek() {
       <div class="day-lbl">${lbl}</div>
     </div>`).join("");
 }
- 
+
 function renderList() {
   const list = document.getElementById("entryList");
   if (state.entries.length === 0) {
@@ -552,7 +567,7 @@ function renderList() {
       <span class="val ${e.kind}">${e.kind === "income" ? "+" : "−"}${fmt(e.amount)}</span>
       <button class="del" data-id="${e.id}" aria-label="Delete entry">✕</button>
     </li>`).join("");
- 
+
   list.querySelectorAll(".del").forEach(btn => {
     btn.addEventListener("click", () => {
       state.entries = state.entries.filter(e => e.id !== +btn.dataset.id);
@@ -560,18 +575,18 @@ function renderList() {
     });
   });
 }
- 
+
 /* ============================================================
    FORM WIRING
    ============================================================ */
 let currentKind = "expense";
- 
+
 function fillCategories() {
   const sel = document.getElementById("catIn");
   const cats = currentKind === "expense" ? EXPENSE_CATS : INCOME_CATS;
   sel.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join("");
 }
- 
+
 document.querySelectorAll(".kind-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     currentKind = btn.dataset.kind;
@@ -580,7 +595,7 @@ document.querySelectorAll(".kind-btn").forEach(btn => {
     fillCategories();
   });
 });
- 
+
 document.getElementById("addBtn").addEventListener("click", () => {
   const amtEl = document.getElementById("amountIn");
   const amount = parseFloat(amtEl.value);
@@ -605,7 +620,7 @@ document.getElementById("addBtn").addEventListener("click", () => {
   render();
   amtEl.focus();
 });
- 
+
 document.getElementById("saveLimit").addEventListener("click", () => {
   const val = parseFloat(document.getElementById("limitInput").value) || 0;
   state.limit = val;
@@ -613,7 +628,45 @@ document.getElementById("saveLimit").addEventListener("click", () => {
   save();
   render();
 });
- 
+
+/* ============================================================
+   CLEAR ALL — wipe every entry (with a safety confirm)
+   ============================================================ */
+document.getElementById("clearAll").addEventListener("click", () => {
+  if (state.entries.length === 0) return;              // nothing to clear
+  if (confirm("Clear all entries? This can't be undone.")) {
+    state.entries = [];
+    save();
+    render();
+  }
+});
+
+/* ============================================================
+   EXPORT CSV — download all entries as a spreadsheet file
+   ============================================================ */
+document.getElementById("exportCsv").addEventListener("click", () => {
+  if (state.entries.length === 0) {
+    alert("No entries to export yet.");
+    return;
+  }
+  const header = ["Date", "Kind", "Category", "Amount", "Note"];
+  const rows = state.entries.map(e => [
+    e.date, e.kind, e.category, e.amount, (e.note || "").replace(/"/g, '""')
+  ]);
+  // wrap each value in quotes so commas in notes don't break columns
+  const csv = [header, ...rows]
+    .map(r => r.map(v => `"${v}"`).join(","))
+    .join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "kudi-entries.csv";
+  a.click();
+  URL.revokeObjectURL(url);   // tidy up after the download
+});
+
 /* ============================================================
    INIT
    ============================================================ */
@@ -626,4 +679,3 @@ render();
 </script>
 </body>
 </html>
- 
