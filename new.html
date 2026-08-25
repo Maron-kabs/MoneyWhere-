@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kudi — know where your cedis go</title>
+
+<!-- ============================================================
+     Kudi — a simple budget tracker for students in Ghana
+     (rename it to anything you like — just change the .brand text)
+
+     What it does:
+       - Log income (MoMo in, allowance...) and expenses
+       - Sort spending into categories
+       - Set a weekly or monthly budget limit + see a live meter
+       - See a category breakdown chart and a weekly summary
+       - Clear all entries or export them to CSV
+       - Saves on your device with localStorage (safe fallback if blocked)
+
+     HOW TO EXTEND:
+       - Add a category: edit EXPENSE_CATS or INCOME_CATS below.
+       - Everything reads from the `state` object, so the logic is
+         all in one place: change state, then call render().
+     ============================================================ -->
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --paper:  #F2F1EC;
+    --card:   #FBFAF6;
+    --ink:    #1C1D22;
+    --muted:  rgba(28,29,34,0.6);
+    --teal:   #234E52;
+    --mint:   #3E9E6E;   /* income */
+    --clay:   #D9694C;   /* expense / over budget */
+    --gold:   #E3B23C;   /* limit warning */
+    --line:   rgba(28,29,34,0.12);
+    --line-2: rgba(28,29,34,0.22);
+
+    --display: "Space Grotesk", system-ui, sans-serif;
+    --body:    "Inter", system-ui, sans-serif;
+    --mono:    "JetBrains Mono", ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { width: min(920px, 92vw); margin: 0 auto; }
+
+  /* ---------- header ---------- */
+  header.site { padding: 1.6rem 0 0.4rem; }
+  .brand {
+    display: flex; align-items: center; gap: 0.6rem;
+    font-family: var(--display); font-weight: 700; font-size: 1.5rem;
+    letter-spacing: -0.02em;
+  }
+  .brand .mark {
+    width: 30px; height: 30px; border-radius: 9px;
+    background: var(--teal); color: var(--paper);
+    display: grid; place-items: center;
+    font-family: var(--mono); font-weight: 700; font-size: 1rem;
+  }
+  .brand small {
+    font-family: var(--body); font-weight: 500; font-size: 0.82rem;
+    color: var(--muted); margin-left: 0.2rem;
+  }
+
+  /* ---------- balance strip ---------- */
+  .balance {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 1px; background: var(--line);
+    border: 1px solid var(--line); border-radius: 16px;
+    overflow: hidden; margin: 1.6rem 0 1.2rem;
+  }
+  .balance .cell { background: var(--card); padding: 1.1rem 1.3rem; }
+  .balance .label {
+    font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .balance .amount {
+    font-family: var(--mono); font-weight: 700; font-size: 1.5rem;
+    margin-top: 0.25rem; letter-spacing: -0.01em;
+  }
+  .amount.pos { color: var(--mint); }
+  .amount.neg { color: var(--clay); }
+
+  /* ---------- budget meter ---------- */
+  .meter-card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 16px; padding: 1.3rem 1.4rem; margin-bottom: 1.2rem;
+  }
+  .meter-top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.8rem;
+  }
+  .meter-top h3 {
+    font-family: var(--display); font-weight: 600; font-size: 1.05rem; margin: 0;
+  }
+  .meter-figs { font-family: var(--mono); font-size: 0.9rem; }
+  .meter-figs b { font-weight: 700; }
+  .meter-track {
+    height: 12px; background: var(--paper); border-radius: 999px;
+    overflow: hidden; border: 1px solid var(--line);
+  }
+  .meter-fill {
+    height: 100%; width: 0; border-radius: 999px;
+    background: var(--mint); transition: width 0.5s ease, background 0.3s;
+  }
+  .meter-note { font-size: 0.85rem; color: var(--muted); margin-top: 0.6rem; }
+  .meter-note.over { color: var(--clay); font-weight: 600; }
+  .set-limit {
+    display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;
+    margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px dashed var(--line-2);
+  }
+  .set-limit label { font-size: 0.85rem; color: var(--muted); }
+
+  /* ---------- two-column body ---------- */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 16px; padding: 1.3rem 1.4rem;
+  }
+  .card h3 {
+    font-family: var(--display); font-weight: 600; font-size: 1.05rem;
+    margin: 0 0 1rem;
+  }
+
+  /* card header with action buttons (Recent entries) */
+  .card-head {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 0.6rem; margin-bottom: 1rem;
+  }
+  .card-head h3 { margin: 0; }
+  .head-actions { display: flex; gap: 0.4rem; }
+
+  /* ---------- add-entry form ---------- */
+  .kind-toggle { display: flex; gap: 0.5rem; margin-bottom: 0.9rem; }
+  .kind-btn {
+    flex: 1; font-family: var(--body); font-weight: 600; font-size: 0.9rem;
+    padding: 0.6rem; border-radius: 10px; cursor: pointer;
+    border: 1.5px solid var(--line-2); background: var(--paper); color: var(--ink);
+    transition: all 0.14s;
+  }
+  .kind-btn.active[data-kind="expense"] { background: var(--clay); color: #fff; border-color: var(--clay); }
+  .kind-btn.active[data-kind="income"]  { background: var(--mint); color: #fff; border-color: var(--mint); }
+
+  .field { margin-bottom: 0.7rem; }
+  .field label {
+    display: block; font-family: var(--mono); font-size: 0.68rem;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 0.25rem;
+  }
+  input, select {
+    width: 100%; font-family: var(--body); font-size: 0.95rem;
+    padding: 0.6rem 0.7rem; border: 1.5px solid var(--line);
+    border-radius: 10px; background: var(--paper); color: var(--ink);
+  }
+  input:focus, select:focus { outline: 2px solid var(--gold); outline-offset: 1px; border-color: var(--teal); }
+  input.amount-in { font-family: var(--mono); font-weight: 600; }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+
+  .btn {
+    font-family: var(--body); font-weight: 600; font-size: 0.95rem;
+    border: none; border-radius: 10px; padding: 0.7rem 1.2rem;
+    cursor: pointer; transition: transform 0.12s, background 0.15s;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-add { width: 100%; background: var(--teal); color: var(--paper); margin-top: 0.4rem; }
+  .btn-add:hover { background: var(--ink); }
+  .btn-sm {
+    background: var(--teal); color: var(--paper);
+    padding: 0.5rem 0.9rem; font-size: 0.85rem;
+  }
+  /* outline variant for the lighter action (Export) */
+  .btn-sm.ghost { background: var(--paper); color: var(--teal); border: 1.5px solid var(--line-2); }
+  .btn-sm.ghost:hover { border-color: var(--teal); }
+  :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+  /* ---------- category chart ---------- */
+  .cat-row { margin-bottom: 0.7rem; }
+  .cat-head {
+    display: flex; justify-content: space-between; font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+  }
+  .cat-head .amt { font-family: var(--mono); font-weight: 600; }
+  .cat-track { height: 9px; background: var(--paper); border-radius: 999px; overflow: hidden; border: 1px solid var(--line); }
+  .cat-bar { height: 100%; border-radius: 999px; background: var(--teal); transition: width 0.5s ease; }
+
+  /* ---------- weekly summary ---------- */
+  .week-total { font-family: var(--mono); font-weight: 700; font-size: 1.3rem; margin-bottom: 0.9rem; }
+  .week-chart { display: flex; align-items: flex-end; gap: 0.5rem; height: 110px; }
+  .day-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.35rem; height: 100%; justify-content: flex-end; }
+  .day-bar {
+    width: 100%; max-width: 26px; background: var(--gold);
+    border-radius: 6px 6px 0 0; min-height: 3px; transition: height 0.5s ease;
+  }
+  .day-bar.today { background: var(--clay); }
+  .day-lbl { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
+
+  /* ---------- entries list ---------- */
+  .entries { list-style: none; padding: 0; margin: 0; }
+  .entry {
+    display: flex; align-items: center; gap: 0.8rem;
+    padding: 0.7rem 0; border-bottom: 1px solid var(--line);
+  }
+  .entry:last-child { border-bottom: none; }
+  .entry .tag {
+    width: 8px; height: 34px; border-radius: 4px; flex: none;
+  }
+  .entry .tag.income  { background: var(--mint); }
+  .entry .tag.expense { background: var(--clay); }
+  .entry .meta { flex: 1; min-width: 0; }
+  .entry .meta .cat { font-weight: 600; font-size: 0.92rem; }
+  .entry .meta .sub {
+    font-size: 0.75rem; color: var(--muted);
+    font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .entry .val { font-family: var(--mono); font-weight: 700; font-size: 0.95rem; white-space: nowrap; }
+  .entry .val.income  { color: var(--mint); }
+  .entry .val.expense { color: var(--clay); }
+  .entry .del {
+    background: none; border: none; cursor: pointer; color: var(--muted);
+    font-size: 1.1rem; line-height: 1; padding: 0.2rem 0.4rem; border-radius: 6px;
+  }
+  .entry .del:hover { color: var(--clay); background: var(--paper); }
+
+  .empty { color: var(--muted); font-size: 0.9rem; padding: 0.8rem 0; }
+
+  .full-width { grid-column: 1 / -1; }
+
+  footer.site {
+    padding: 1.5rem 0 3rem; font-family: var(--mono);
+    font-size: 0.75rem; color: var(--muted); text-align: center;
+  }
+  .storage-warn {
+    display: none; background: rgba(227,178,60,0.16); border: 1px solid var(--gold);
+    border-radius: 10px; padding: 0.6rem 0.9rem; font-size: 0.82rem;
+    margin-bottom: 1rem;
+  }
+  .storage-warn.show { display: block; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="brand">
+      <span class="mark">₵</span>
+      <span>Kudi</span>
+      <small>know where your cedis go</small>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="storage-warn" id="storageWarn">
+    Heads up: your browser is blocking saved data here, so entries will reset when you close the page. It saves normally when you run it from your own site.
+  </div>
+
+  <!-- balance strip -->
+  <section class="balance">
+    <div class="cell">
+      <div class="label">Income in</div>
+      <div class="amount pos" id="totIncome">₵0.00</div>
+    </div>
+    <div class="cell">
+      <div class="label">Spent</div>
+      <div class="amount neg" id="totExpense">₵0.00</div>
+    </div>
+    <div class="cell">
+      <div class="label">Balance</div>
+      <div class="amount" id="balance">₵0.00</div>
+    </div>
+  </section>
+
+  <!-- budget meter -->
+  <section class="meter-card">
+    <div class="meter-top">
+      <h3 id="meterTitle">Budget this week</h3>
+      <div class="meter-figs" id="meterFigs">No limit set</div>
+    </div>
+    <div class="meter-track"><div class="meter-fill" id="meterFill"></div></div>
+    <div class="meter-note" id="meterNote">Set a limit below to track your spending against it.</div>
+
+    <div class="set-limit">
+      <label for="limitInput">Set limit</label>
+      <input class="amount-in" id="limitInput" type="number" min="0" step="1" placeholder="e.g. 200" style="max-width:120px;" />
+      <select id="periodSelect" style="max-width:130px;">
+        <option value="weekly">per week</option>
+        <option value="monthly">per month</option>
+      </select>
+      <button class="btn btn-sm" id="saveLimit">Save limit</button>
+    </div>
+  </section>
+
+  <div class="grid2">
+
+    <!-- add entry -->
+    <section class="card">
+      <h3>Add an entry</h3>
+      <div class="kind-toggle">
+        <button class="kind-btn active" data-kind="expense">− Expense</button>
+        <button class="kind-btn" data-kind="income">+ Income</button>
+      </div>
+      <div class="field">
+        <label for="amountIn">Amount (₵)</label>
+        <input class="amount-in" id="amountIn" type="number" min="0" step="0.01" placeholder="0.00" />
+      </div>
+      <div class="field">
+        <label for="catIn">Category</label>
+        <select id="catIn"></select>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="noteIn">Note (optional)</label>
+          <input id="noteIn" type="text" maxlength="40" placeholder="trotro to Legon" />
+        </div>
+        <div class="field">
+          <label for="dateIn">Date</label>
+          <input id="dateIn" type="date" />
+        </div>
+      </div>
+      <button class="btn btn-add" id="addBtn">Add entry</button>
+    </section>
+
+    <!-- category breakdown -->
+    <section class="card">
+      <h3>Where your money goes</h3>
+      <div id="catChart"></div>
+    </section>
+
+    <!-- weekly summary -->
+    <section class="card">
+      <h3>This week</h3>
+      <div class="week-total" id="weekTotal">₵0.00</div>
+      <div class="week-chart" id="weekChart"></div>
+    </section>
+
+    <!-- entries list -->
+    <section class="card">
+      <div class="card-head">
+        <h3>Recent entries</h3>
+        <div class="head-actions">
+          <button class="btn btn-sm ghost" id="exportCsv">Export CSV</button>
+          <button class="btn btn-sm" id="clearAll">Clear all</button>
+        </div>
+      </div>
+      <ul class="entries" id="entryList"></ul>
+    </section>
+
+  </div>
+</main>
+
+<footer class="site">
+  Kudi · a learning project · your data stays on your device
+</footer>
+
+<script>
+/* ============================================================
+   CATEGORIES — edit these lists to add your own.
+   ============================================================ */
+const EXPENSE_CATS = ["Food / Chop", "Transport", "Data / Airtime", "Books / Printing",
+                      "Rent / Hostel", "Entertainment", "Savings", "Other"];
+const INCOME_CATS  = ["Allowance", "MoMo received", "Part-time", "Gift", "Other"];
+
+/* ============================================================
+   STATE + STORAGE
+   ============================================================ */
+const STORAGE_KEY = "kudi_budget_v1";
+let storageOK = true;
+
+let state = {
+  limit: 0,            // 0 = no limit set
+  period: "weekly",    // "weekly" | "monthly"
+  entries: []          // { id, kind, amount, category, note, date }
+};
+
+function save() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    storageOK = false;
+    document.getElementById("storageWarn").classList.add("show");
+  }
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) state = JSON.parse(raw);
+  } catch (e) {
+    storageOK = false;
+    document.getElementById("storageWarn").classList.add("show");
+  }
+}
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function fmt(n) {
+  return "₵" + Number(n).toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function todayISO() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+// Monday as start of week
+function startOfWeek(d) {
+  const date = new Date(d);
+  const day = (date.getDay() + 6) % 7; // 0 = Monday
+  date.setDate(date.getDate() - day);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+function inThisWeek(iso) {
+  const start = startOfWeek(new Date());
+  const end = new Date(start); end.setDate(start.getDate() + 7);
+  const d = new Date(iso);
+  return d >= start && d < end;
+}
+function inThisMonth(iso) {
+  const now = new Date();
+  const d = new Date(iso);
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+}
+
+/* ============================================================
+   RENDER — redraws everything from `state`
+   ============================================================ */
+function render() {
+  const income  = state.entries.filter(e => e.kind === "income").reduce((s, e) => s + e.amount, 0);
+  const expense = state.entries.filter(e => e.kind === "expense").reduce((s, e) => s + e.amount, 0);
+  const balance = income - expense;
+
+  document.getElementById("totIncome").textContent  = fmt(income);
+  document.getElementById("totExpense").textContent = fmt(expense);
+  const balEl = document.getElementById("balance");
+  balEl.textContent = fmt(balance);
+  balEl.className = "amount " + (balance < 0 ? "neg" : "pos");
+
+  renderMeter();
+  renderCatChart();
+  renderWeek();
+  renderList();
+}
+
+function renderMeter() {
+  const title = document.getElementById("meterTitle");
+  const figs  = document.getElementById("meterFigs");
+  const fill  = document.getElementById("meterFill");
+  const note  = document.getElementById("meterNote");
+
+  const inPeriod = state.period === "weekly" ? inThisWeek : inThisMonth;
+  const spent = state.entries
+    .filter(e => e.kind === "expense" && inPeriod(e.date))
+    .reduce((s, e) => s + e.amount, 0);
+
+  title.textContent = state.period === "weekly" ? "Budget this week" : "Budget this month";
+
+  if (!state.limit || state.limit <= 0) {
+    figs.textContent = "No limit set";
+    fill.style.width = "0%";
+    fill.style.background = "var(--mint)";
+    note.className = "meter-note";
+    note.textContent = "Set a limit below to track your spending against it.";
+    return;
+  }
+
+  const pct = Math.min((spent / state.limit) * 100, 100);
+  const left = state.limit - spent;
+  fill.style.width = pct + "%";
+  figs.innerHTML = `<b>${fmt(spent)}</b> of ${fmt(state.limit)}`;
+
+  if (spent > state.limit) {
+    fill.style.background = "var(--clay)";
+    note.className = "meter-note over";
+    note.textContent = `You're ${fmt(spent - state.limit)} over your ${state.period} limit.`;
+  } else if (pct >= 80) {
+    fill.style.background = "var(--gold)";
+    note.className = "meter-note";
+    note.textContent = `${fmt(left)} left — you're close to the limit.`;
+  } else {
+    fill.style.background = "var(--mint)";
+    note.className = "meter-note";
+    note.textContent = `${fmt(left)} left to spend this ${state.period === "weekly" ? "week" : "month"}.`;
+  }
+}
+
+function renderCatChart() {
+  const mount = document.getElementById("catChart");
+  const totals = {};
+  state.entries.filter(e => e.kind === "expense").forEach(e => {
+    totals[e.category] = (totals[e.category] || 0) + e.amount;
+  });
+  const rows = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+
+  if (rows.length === 0) {
+    mount.innerHTML = `<p class="empty">No spending yet. Add an expense to see the breakdown.</p>`;
+    return;
+  }
+  const max = rows[0][1];
+  mount.innerHTML = rows.map(([cat, amt]) => `
+    <div class="cat-row">
+      <div class="cat-head"><span>${cat}</span><span class="amt">${fmt(amt)}</span></div>
+      <div class="cat-track"><div class="cat-bar" style="width:${(amt / max * 100)}%"></div></div>
+    </div>`).join("");
+}
+
+function renderWeek() {
+  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const start = startOfWeek(new Date());
+  const buckets = [0, 0, 0, 0, 0, 0, 0];
+  let weekTotal = 0;
+
+  state.entries.filter(e => e.kind === "expense").forEach(e => {
+    const d = new Date(e.date);
+    const diff = Math.floor((d - start) / 86400000);
+    if (diff >= 0 && diff < 7) { buckets[diff] += e.amount; weekTotal += e.amount; }
+  });
+
+  document.getElementById("weekTotal").textContent = fmt(weekTotal) + " spent";
+
+  const max = Math.max(...buckets, 1);
+  const todayIdx = (new Date().getDay() + 6) % 7;
+  document.getElementById("weekChart").innerHTML = labels.map((lbl, i) => `
+    <div class="day-col" title="${lbl}: ${fmt(buckets[i])}">
+      <div class="day-bar ${i === todayIdx ? "today" : ""}" style="height:${buckets[i] / max * 100}%"></div>
+      <div class="day-lbl">${lbl}</div>
+    </div>`).join("");
+}
+
+function renderList() {
+  const list = document.getElementById("entryList");
+  if (state.entries.length === 0) {
+    list.innerHTML = `<li class="empty">Nothing logged yet. Add your first entry on the left.</li>`;
+    return;
+  }
+  // newest first
+  const sorted = [...state.entries].sort((a, b) =>
+    b.date.localeCompare(a.date) || b.id - a.id
+  );
+  list.innerHTML = sorted.map(e => `
+    <li class="entry">
+      <span class="tag ${e.kind}"></span>
+      <div class="meta">
+        <div class="cat">${e.category}</div>
+        <div class="sub">${e.date}${e.note ? " · " + e.note : ""}</div>
+      </div>
+      <span class="val ${e.kind}">${e.kind === "income" ? "+" : "−"}${fmt(e.amount)}</span>
+      <button class="del" data-id="${e.id}" aria-label="Delete entry">✕</button>
+    </li>`).join("");
+
+  list.querySelectorAll(".del").forEach(btn => {
+    btn.addEventListener("click", () => {
+      state.entries = state.entries.filter(e => e.id !== +btn.dataset.id);
+      save(); render();
+    });
+  });
+}
+
+/* ============================================================
+   FORM WIRING
+   ============================================================ */
+let currentKind = "expense";
+
+function fillCategories() {
+  const sel = document.getElementById("catIn");
+  const cats = currentKind === "expense" ? EXPENSE_CATS : INCOME_CATS;
+  sel.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join("");
+}
+
+document.querySelectorAll(".kind-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    currentKind = btn.dataset.kind;
+    document.querySelectorAll(".kind-btn").forEach(b =>
+      b.classList.toggle("active", b === btn));
+    fillCategories();
+  });
+});
+
+document.getElementById("addBtn").addEventListener("click", () => {
+  const amtEl = document.getElementById("amountIn");
+  const amount = parseFloat(amtEl.value);
+  if (!amount || amount <= 0) {
+    amtEl.focus();
+    amtEl.style.borderColor = "var(--clay)";
+    return;
+  }
+  amtEl.style.borderColor = "";
+  state.entries.push({
+    id: Date.now(),
+    kind: currentKind,
+    amount: amount,
+    category: document.getElementById("catIn").value,
+    note: document.getElementById("noteIn").value.trim(),
+    date: document.getElementById("dateIn").value || todayISO()
+  });
+  save();
+  // reset the quick fields
+  amtEl.value = "";
+  document.getElementById("noteIn").value = "";
+  render();
+  amtEl.focus();
+});
+
+document.getElementById("saveLimit").addEventListener("click", () => {
+  const val = parseFloat(document.getElementById("limitInput").value) || 0;
+  state.limit = val;
+  state.period = document.getElementById("periodSelect").value;
+  save();
+  render();
+});
+
+/* ============================================================
+   CLEAR ALL — wipe every entry (with a safety confirm)
+   ============================================================ */
+document.getElementById("clearAll").addEventListener("click", () => {
+  if (state.entries.length === 0) return;              // nothing to clear
+  if (confirm("Clear all entries? This can't be undone.")) {
+    state.entries = [];
+    save();
+    render();
+  }
+});
+
+/* ============================================================
+   EXPORT CSV — download all entries as a spreadsheet file
+   ============================================================ */
+document.getElementById("exportCsv").addEventListener("click", () => {
+  if (state.entries.length === 0) {
+    alert("No entries to export yet.");
+    return;
+  }
+  const header = ["Date", "Kind", "Category", "Amount", "Note"];
+  const rows = state.entries.map(e => [
+    e.date, e.kind, e.category, e.amount, (e.note || "").replace(/"/g, '""')
+  ]);
+  // wrap each value in quotes so commas in notes don't break columns
+  const csv = [header, ...rows]
+    .map(r => r.map(v => `"${v}"`).join(","))
+    .join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "kudi-entries.csv";
+  a.click();
+  URL.revokeObjectURL(url);   // tidy up after the download
+});
+
+/* ============================================================
+   INIT
+   ============================================================ */
+load();
+document.getElementById("dateIn").value = todayISO();
+document.getElementById("limitInput").value = state.limit || "";
+document.getElementById("periodSelect").value = state.period;
+fillCategories();
+render();
+</script>
+</body>
+</html>
