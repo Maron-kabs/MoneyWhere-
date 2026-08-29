@@ -15,12 +15,16 @@
        - Set a weekly or monthly budget limit + see a live meter
        - See a category breakdown chart and a weekly summary
        - Clear all entries or export them to CSV
+       - Light / dark theme toggle (remembers your choice)
        - Saves on your device with localStorage (safe fallback if blocked)
 
      HOW TO EXTEND:
        - Add a category: edit EXPENSE_CATS or INCOME_CATS below.
        - Everything reads from the `state` object, so the logic is
          all in one place: change state, then call render().
+       - Theming is driven by CSS variables. The [data-theme="dark"]
+         block just overrides those variables — add a new theme the
+         same way.
      ============================================================ -->
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -40,9 +44,30 @@
     --line:   rgba(28,29,34,0.12);
     --line-2: rgba(28,29,34,0.22);
 
+    /* theme-aware helpers (kept light in both themes where noted) */
+    --btn-text:  #FBFAF6;   /* text on filled teal/mint buttons */
+    --accent-2:  #234E52;   /* teal for bars + ghost-button text  */
+    --btn-hover: #1C1D22;   /* filled-button hover background     */
+
     --display: "Space Grotesk", system-ui, sans-serif;
     --body:    "Inter", system-ui, sans-serif;
     --mono:    "JetBrains Mono", ui-monospace, monospace;
+  }
+
+  /* ---------- dark theme ----------
+     Flips only the neutrals; the accent colours (mint/clay/gold)
+     already read well on a dark background, so they stay put. */
+  [data-theme="dark"] {
+    --paper:  #17181C;
+    --card:   #202128;
+    --ink:    #ECEBE5;
+    --muted:  rgba(236,235,229,0.60);
+    --line:   rgba(236,235,229,0.12);
+    --line-2: rgba(236,235,229,0.24);
+
+    --accent-2:  #5FB4B9;   /* lighter teal so bars/text pop on dark */
+    --btn-hover: #35787D;
+    /* --btn-text stays light (inherited from :root) */
   }
 
   * { box-sizing: border-box; }
@@ -54,11 +79,15 @@
     font-family: var(--body);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    transition: background 0.3s ease, color 0.3s ease;
   }
   .wrap { width: min(920px, 92vw); margin: 0 auto; }
 
   /* ---------- header ---------- */
   header.site { padding: 1.6rem 0 0.4rem; }
+  .top-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  }
   .brand {
     display: flex; align-items: center; gap: 0.6rem;
     font-family: var(--display); font-weight: 700; font-size: 1.5rem;
@@ -67,7 +96,7 @@
    .brand .mark {
     width: 30px; height: 30px; border-radius: 9px;
     background: linear-gradient(145deg, var(--teal), var(--mint));
-    color: var(--paper);
+    color: var(--btn-text);
     display: grid; place-items: center;
     font-family: var(--mono); font-weight: 700; font-size: 1rem;
     box-shadow: 0 2px 6px rgba(35, 78, 82, 0.35);
@@ -76,6 +105,17 @@
     font-family: var(--body); font-weight: 500; font-size: 0.82rem;
     color: var(--muted); margin-left: 0.2rem;
   }
+
+  /* ---------- theme toggle ---------- */
+  .theme-toggle {
+    flex: none; width: 40px; height: 40px; border-radius: 11px;
+    border: 1.5px solid var(--line-2); background: var(--card); color: var(--ink);
+    cursor: pointer; font-size: 1.15rem; line-height: 1;
+    display: grid; place-items: center;
+    transition: border-color 0.15s, background 0.15s, transform 0.12s;
+  }
+  .theme-toggle:hover { border-color: var(--teal); }
+  .theme-toggle:active { transform: translateY(1px); }
 
   /* ---------- balance strip ---------- */
   .balance {
@@ -180,14 +220,14 @@
     cursor: pointer; transition: transform 0.12s, background 0.15s;
   }
   .btn:active { transform: translateY(1px); }
-  .btn-add { width: 100%; background: var(--teal); color: var(--paper); margin-top: 0.4rem; }
-  .btn-add:hover { background: var(--ink); }
+  .btn-add { width: 100%; background: var(--teal); color: var(--btn-text); margin-top: 0.4rem; }
+  .btn-add:hover { background: var(--btn-hover); }
   .btn-sm {
-    background: var(--teal); color: var(--paper);
+    background: var(--teal); color: var(--btn-text);
     padding: 0.5rem 0.9rem; font-size: 0.85rem;
   }
   /* outline variant for the lighter action (Export) */
-  .btn-sm.ghost { background: var(--paper); color: var(--teal); border: 1.5px solid var(--line-2); }
+  .btn-sm.ghost { background: var(--paper); color: var(--accent-2); border: 1.5px solid var(--line-2); }
   .btn-sm.ghost:hover { border-color: var(--teal); }
   :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 
@@ -199,7 +239,7 @@
   }
   .cat-head .amt { font-family: var(--mono); font-weight: 600; }
   .cat-track { height: 9px; background: var(--paper); border-radius: 999px; overflow: hidden; border: 1px solid var(--line); }
-  .cat-bar { height: 100%; border-radius: 999px; background: var(--teal); transition: width 0.5s ease; }
+  .cat-bar { height: 100%; border-radius: 999px; background: var(--accent-2); transition: width 0.5s ease; }
 
   /* ---------- weekly summary ---------- */
   .week-total { font-family: var(--mono); font-weight: 700; font-size: 1.3rem; margin-bottom: 0.9rem; }
@@ -262,12 +302,16 @@
 <body>
 
 <header class="site">
-  <div class="wrap">
+  <div class="wrap top-row">
     <div class="brand">
       <span class="mark">₵</span>
       <span>Kudi</span>
       <small>know where your cedis go</small>
     </div>
+    <button id="themeToggle" class="theme-toggle" type="button"
+            aria-label="Switch to dark mode" aria-pressed="false">
+      <span class="ic" aria-hidden="true">🌙</span>
+    </button>
   </div>
 </header>
 
@@ -413,6 +457,39 @@ function load() {
     document.getElementById("storageWarn").classList.add("show");
   }
 }
+
+/* ============================================================
+   THEME (light / dark) — remembers the choice, and falls back
+   to the device preference the first time.
+   Stored under its own key so it never touches the budget data.
+   ============================================================ */
+const THEME_KEY = "kudi_theme_v1";
+const themeToggle = document.getElementById("themeToggle");
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  const dark = theme === "dark";
+  themeToggle.querySelector(".ic").textContent = dark ? "☀️" : "🌙";
+  themeToggle.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+  themeToggle.setAttribute("aria-pressed", String(dark));
+}
+
+function initTheme() {
+  let theme = null;
+  try { theme = localStorage.getItem(THEME_KEY); } catch (e) {}
+  if (!theme) {
+    // no saved choice yet — follow the device's setting
+    theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark" : "light";
+  }
+  applyTheme(theme);
+}
+
+themeToggle.addEventListener("click", () => {
+  const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  applyTheme(next);
+  try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+});
 
 /* ============================================================
    HELPERS
@@ -672,6 +749,7 @@ document.getElementById("exportCsv").addEventListener("click", () => {
 /* ============================================================
    INIT
    ============================================================ */
+initTheme();
 load();
 document.getElementById("dateIn").value = todayISO();
 document.getElementById("limitInput").value = state.limit || "";
