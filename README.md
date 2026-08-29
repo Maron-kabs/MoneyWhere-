@@ -1,6 +1,6 @@
 # Kudi
 
-A simple budget tracker for students in Ghana — log income and spending, set limits, see where your cedis go.
+A simple budget tracker for students in Ghana () log income and spending, set limits, see where your cedis go.
 
 ## Features
 - Log income and expenses by category
