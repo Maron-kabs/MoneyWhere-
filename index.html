@@ -3,24 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Kudi — know where your cedis go</title>
+<title>Kabs — know where your cedis go</title>
 
-<!-- ============================================================
-     Kabs — a budget tracker for students in Ghana.
-
-     Design identity: "Black Star wallet".
-       Palette derived from Ghana's flag — gold (brand/primary),
-       green (money in), red (money out) — on a cool porcelain base,
-       with one bold dark-green "wallet" card as the signature.
-       Type: Bricolage Grotesque (display) / Hanken Grotesk (body)
-       / IBM Plex Mono (money figures).
-
-     Features: income + expense logging, categories, weekly/monthly
-       budget ring, spending line graph, CSV export, light/dark theme.
-       All state lives in the `state` object → change it, call render().
-       Add a category in EXPENSE_CATS / INCOME_CATS (+ an emoji in
-       CAT_ICONS). No libraries; saves to localStorage.
-     ============================================================ -->
+<!-- Kabs — a budget tracker for students in Ghana. -->
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -28,7 +13,6 @@
 
 <style>
   :root {
-    /* --- surfaces & ink (light) --- */
     --bg:        #EDF0EA;
     --surface:   #FFFFFF;
     --surface-2: #F4F6F1;
@@ -37,37 +21,27 @@
     --ink-faint: rgba(19,33,27,0.40);
     --line:      rgba(19,33,27,0.10);
     --line-2:    rgba(19,33,27,0.16);
-
-    /* --- flag-derived accents --- */
     --gold:      #E0A008;
     --gold-deep: #A9760A;
     --green:     #1E7F4C;
     --green-bg:  rgba(30,127,76,0.12);
     --red:       #C63D3D;
     --red-bg:    rgba(198,61,61,0.12);
-
-    /* --- the wallet (signature) --- */
     --hero-1:    #14352A;
     --hero-2:    #0E2A20;
     --hero-ink:  #F3EFE2;
     --hero-soft: rgba(243,239,226,0.60);
     --hero-gold: #F0C24B;
     --hero-line: rgba(240,194,75,0.22);
-
-    /* --- radius & shadow --- */
     --r-lg: 22px; --r-md: 14px; --r-sm: 10px;
     --sh-1: 0 1px 2px rgba(19,33,27,0.05), 0 10px 26px -14px rgba(19,33,27,0.20);
     --sh-2: 0 2px 6px rgba(19,33,27,0.06), 0 18px 40px -18px rgba(19,33,27,0.28);
     --sh-hero: 0 14px 36px -14px rgba(14,42,32,0.55);
-
     --font-display: "Bricolage Grotesque", system-ui, sans-serif;
     --font-body:    "Hanken Grotesk", system-ui, sans-serif;
     --font-mono:    "IBM Plex Mono", ui-monospace, monospace;
-
     color-scheme: light;
   }
-
-  /* --- dark theme: deep green-black, brighter accents --- */
   [data-theme="dark"] {
     --bg:        #0E1512;
     --surface:   #161E19;
@@ -77,24 +51,19 @@
     --ink-faint: rgba(232,236,228,0.42);
     --line:      rgba(232,236,228,0.12);
     --line-2:    rgba(232,236,228,0.20);
-
     --gold:      #F0C24B;
     --gold-deep: #D9A93A;
     --green:     #38B86F;
     --green-bg:  rgba(56,184,111,0.16);
     --red:       #E4685F;
     --red-bg:    rgba(228,104,95,0.16);
-
     --hero-1:    #17352A;
     --hero-2:    #0C231B;
-
     --sh-1: 0 1px 2px rgba(0,0,0,0.4), 0 12px 30px -16px rgba(0,0,0,0.6);
     --sh-2: 0 2px 8px rgba(0,0,0,0.45), 0 20px 44px -18px rgba(0,0,0,0.7);
     --sh-hero: 0 16px 40px -16px rgba(0,0,0,0.7);
-
     color-scheme: dark;
   }
-
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
@@ -104,8 +73,6 @@
     transition: background 0.3s ease, color 0.3s ease;
   }
   .wrap { width: min(960px, 92vw); margin: 0 auto; }
-
-  /* ---------- header ---------- */
   header.site {
     position: sticky; top: 0; z-index: 20;
     background: color-mix(in srgb, var(--bg) 82%, transparent);
@@ -141,24 +108,17 @@
   }
   .theme-toggle:hover { border-color: var(--gold); box-shadow: var(--sh-1); }
   .theme-toggle:active { transform: translateY(1px); }
-
   main { padding: 1.4rem 0 0; }
-
-  /* ---------- reveal on load ---------- */
   @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
   .reveal { animation: rise 0.55s cubic-bezier(0.2,0.7,0.2,1) both; }
   main > .reveal:nth-child(2) { animation-delay: 0.04s; }
   main > .reveal:nth-child(3) { animation-delay: 0.10s; }
   main > .reveal:nth-child(4) { animation-delay: 0.16s; }
   main > .reveal:nth-child(5) { animation-delay: 0.22s; }
-
-  /* ---------- top dashboard: wallet + ring ---------- */
   .dash-top {
     display: grid; grid-template-columns: 1.5fr 1fr; gap: 1.1rem; margin-bottom: 1.1rem;
   }
   @media (max-width: 760px) { .dash-top { grid-template-columns: 1fr; } }
-
-  /* the wallet — the signature element */
   .wallet {
     position: relative; overflow: hidden;
     background: radial-gradient(120% 140% at 85% 0%, var(--hero-1), var(--hero-2));
@@ -195,8 +155,6 @@
   .chip-dot.out { background: #EF9A96; }
   .chip-k { font-size: 0.78rem; color: var(--hero-soft); }
   .chip-v { font-family: var(--font-mono); font-weight: 600; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
-
-  /* ---------- generic card ---------- */
   .card {
     background: var(--surface); border: 1px solid var(--line);
     border-radius: var(--r-lg); padding: 1.35rem 1.45rem; box-shadow: var(--sh-1);
@@ -209,8 +167,6 @@
     font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.14em;
     text-transform: uppercase; color: var(--ink-faint); margin-bottom: 0.5rem;
   }
-
-  /* ---------- budget ring card ---------- */
   .budget { display: flex; gap: 1.2rem; align-items: center; }
   .ring { position: relative; width: 128px; height: 128px; flex: none; }
   .ring-svg { width: 100%; height: 100%; display: block; }
@@ -233,23 +189,18 @@
     display: flex; gap: 0.45rem; flex-wrap: wrap; align-items: center;
     margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px dashed var(--line-2);
   }
-  .set-limit label { font-size: 0.8rem; color: var(--ink-faint); width: 100%; margin-bottom: 0.1rem;
+  .set-limit label { color: var(--ink-faint); width: 100%; margin-bottom: 0.1rem;
     font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.64rem; }
-
-  /* ---------- two-column body ---------- */
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; margin-bottom: 1.1rem; }
   @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
   section.card.reveal { margin-bottom: 1.1rem; }
-  .grid2.reveal { display: grid; }   /* keep grid when revealed */
-
+  .grid2.reveal { display: grid; }
   .card-head {
     display: flex; justify-content: space-between; align-items: center;
     gap: 0.6rem; margin-bottom: 1rem;
   }
   .card-head h3 { margin: 0; }
   .head-actions { display: flex; gap: 0.4rem; }
-
-  /* ---------- add-entry form ---------- */
   .kind-toggle {
     display: flex; gap: 0.3rem; margin-bottom: 1rem; padding: 0.3rem;
     background: var(--surface-2); border-radius: 12px; border: 1px solid var(--line);
@@ -262,7 +213,6 @@
   }
   .kind-btn.active[data-kind="expense"] { background: var(--surface); color: var(--red); box-shadow: var(--sh-1); }
   .kind-btn.active[data-kind="income"]  { background: var(--surface); color: var(--green); box-shadow: var(--sh-1); }
-
   .field { margin-bottom: 0.75rem; }
   .field label {
     display: block; font-family: var(--font-mono); font-size: 0.64rem;
@@ -281,8 +231,6 @@
   }
   input.amount-in { font-family: var(--font-mono); font-weight: 600; font-variant-numeric: tabular-nums; }
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
-
-  /* ---------- buttons ---------- */
   .btn {
     font-family: var(--font-body); font-weight: 600; font-size: 0.95rem;
     border: 1px solid transparent; border-radius: var(--r-sm); padding: 0.72rem 1.2rem;
@@ -303,8 +251,6 @@
   .btn-danger { background: transparent; color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
   .btn-danger:hover { background: var(--red-bg); }
   :focus-visible { outline: 3px solid color-mix(in srgb, var(--gold) 55%, transparent); outline-offset: 2px; }
-
-  /* ---------- category breakdown ---------- */
   .cat-row { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.85rem; }
   .cat-row:last-child { margin-bottom: 0; }
   .cat-ic {
@@ -318,8 +264,6 @@
   .cat-amt { font-family: var(--font-mono); font-weight: 600; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
   .cat-track { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
   .cat-bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); transition: width 0.6s cubic-bezier(0.2,0.7,0.2,1); }
-
-  /* ---------- weekly line graph ---------- */
   .week-total { font-family: var(--font-mono); font-weight: 600; font-size: 1.25rem; margin-bottom: 0.9rem; font-variant-numeric: tabular-nums; }
   .week-chart { width: 100%; }
   .week-svg { width: 100%; height: auto; display: block; overflow: visible; }
@@ -331,8 +275,6 @@
   .week-dot:hover { r: 6; }
   .week-lbl { fill: var(--ink-faint); font-family: var(--font-mono); font-size: 9px; }
   .week-lbl.today { fill: var(--red); font-weight: 600; }
-
-  /* ---------- entries ---------- */
   .entries { list-style: none; padding: 0; margin: 0; }
   .entry {
     display: flex; align-items: center; gap: 0.8rem;
@@ -363,27 +305,22 @@
   }
   .entry:hover .del { opacity: 1; }
   .entry .del:hover { color: var(--red); background: var(--red-bg); }
-
-  /* ---------- empty states ---------- */
   .empty {
     color: var(--ink-soft); font-size: 0.9rem; padding: 1.1rem 0.2rem;
     text-align: center;
   }
   .empty .big { display: block; font-size: 1.5rem; margin-bottom: 0.35rem; opacity: 0.7; }
-
   footer.site {
     padding: 1.6rem 0 3rem; font-family: var(--font-mono);
     font-size: 0.72rem; color: var(--ink-faint); text-align: center;
   }
   .star-mini { color: var(--gold); }
-
   .storage-warn {
     display: none; background: var(--gold); color: #1a1204;
     border-radius: var(--r-md); padding: 0.7rem 0.95rem; font-size: 0.85rem;
     margin-bottom: 1.1rem; font-weight: 500;
   }
   .storage-warn.show { display: block; }
-
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto; }
     .reveal { opacity: 1 !important; transform: none !important; }
@@ -397,7 +334,7 @@
     <div class="brand">
       <span class="mark">₵</span>
       <span>
-        <span class="name">Kudi</span>
+        <span class="name">Kabs</span>
         <span class="tag">know where your cedis go</span>
       </span>
     </div>
@@ -411,13 +348,10 @@
 <main class="wrap">
 
   <div class="storage-warn" id="storageWarn">
-    Your browser is blocking saved data here, so entries reset when you close the page. It saves normally when you run Kudi from your own site.
+    Your browser is blocking saved data here, so entries reset when you close the page. It saves normally when you run Kabs from your own site.
   </div>
 
-  <!-- top dashboard: wallet + budget ring -->
   <div class="dash-top reveal">
-
-    <!-- the wallet (signature) -->
     <section class="wallet">
       <div class="wallet-star" aria-hidden="true">
         <svg viewBox="0 0 100 100"><path fill="#F0C24B" d="M50 3 61 38 98 38 68 60 79 95 50 73 21 95 32 60 2 38 39 38Z"/></svg>
@@ -441,7 +375,6 @@
       </div>
     </section>
 
-    <!-- budget ring -->
     <section class="card budget">
       <div class="ring">
         <svg class="ring-svg" viewBox="0 0 120 120">
@@ -471,7 +404,6 @@
   </div>
 
   <div class="grid2 reveal">
-    <!-- add entry -->
     <section class="card">
       <h3>Add an entry</h3>
       <div class="kind-toggle">
@@ -499,14 +431,12 @@
       <button class="btn btn-primary" id="addBtn">Add entry</button>
     </section>
 
-    <!-- category breakdown -->
     <section class="card">
       <h3>Where your money goes</h3>
       <div id="catChart"></div>
     </section>
   </div>
 
-  <!-- weekly line graph -->
   <section class="card reveal">
     <div class="eyebrow">Spending trend</div>
     <h3>This week</h3>
@@ -514,7 +444,6 @@
     <div class="week-chart" id="weekChart"></div>
   </section>
 
-  <!-- entries list -->
   <section class="card reveal">
     <div class="card-head">
       <h3>Recent entries</h3>
@@ -529,13 +458,10 @@
 </main>
 
 <footer class="site">
-  Kudi <span class="star-mini">★</span> a learning project · your data stays on your device
+  Kabs <span class="star-mini">★</span> a learning project · your data stays on your device
 </footer>
 
 <script>
-/* ============================================================
-   CATEGORIES + ICONS — edit these to add your own.
-   ============================================================ */
 const EXPENSE_CATS = ["Food / Chop", "Transport", "Data / Airtime", "Books / Printing",
                       "Rent / Hostel", "Entertainment", "Savings", "Other"];
 const INCOME_CATS  = ["Allowance", "MoMo received", "Part-time", "Gift", "Other"];
@@ -547,44 +473,22 @@ const CAT_ICONS = {
 };
 function iconFor(cat) { return CAT_ICONS[cat] || "•"; }
 
-/* ============================================================
-   STATE + STORAGE
-   ============================================================ */
-const STORAGE_KEY = "kudi_budget_v1";
+const STORAGE_KEY = "kabs_budget_v1";
 let storageOK = true;
 
-let state = {
-  limit: 0,            // 0 = no limit set
-  period: "weekly",    // "weekly" | "monthly"
-  entries: []          // { id, kind, amount, category, note, date }
-};
+let state = { limit: 0, period: "weekly", entries: [] };
 
 function save() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (e) {
-    storageOK = false;
-    document.getElementById("storageWarn").classList.add("show");
-  }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  catch (e) { storageOK = false; document.getElementById("storageWarn").classList.add("show"); }
 }
-
 function load() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) state = JSON.parse(raw);
-  } catch (e) {
-    storageOK = false;
-    document.getElementById("storageWarn").classList.add("show");
-  }
+  try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) state = JSON.parse(raw); }
+  catch (e) { storageOK = false; document.getElementById("storageWarn").classList.add("show"); }
 }
 
-/* ============================================================
-   THEME (light / dark) — remembers the choice, falls back to
-   the device preference the first time. Its own storage key.
-   ============================================================ */
-const THEME_KEY = "kudi_theme_v1";
+const THEME_KEY = "kabs_theme_v1";
 const themeToggle = document.getElementById("themeToggle");
-
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   const dark = theme === "dark";
@@ -595,9 +499,7 @@ function applyTheme(theme) {
 function initTheme() {
   let theme = null;
   try { theme = localStorage.getItem(THEME_KEY); } catch (e) {}
-  if (!theme) {
-    theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  }
+  if (!theme) { theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; }
   applyTheme(theme);
 }
 themeToggle.addEventListener("click", () => {
@@ -606,14 +508,11 @@ themeToggle.addEventListener("click", () => {
   try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
 });
 
-/* ============================================================
-   HELPERS
-   ============================================================ */
 function fmt(n) {
   return "₵" + Number(n).toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 function todayISO() { return new Date().toISOString().slice(0, 10); }
-function startOfWeek(d) {                 // Monday as start of week
+function startOfWeek(d) {
   const date = new Date(d);
   const day = (date.getDay() + 6) % 7;
   date.setDate(date.getDate() - day);
@@ -631,27 +530,19 @@ function inThisMonth(iso) {
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
 
-/* ============================================================
-   RENDER
-   ============================================================ */
 function render() {
   const income  = state.entries.filter(e => e.kind === "income").reduce((s, e) => s + e.amount, 0);
   const expense = state.entries.filter(e => e.kind === "expense").reduce((s, e) => s + e.amount, 0);
   const balance = income - expense;
-
   document.getElementById("totIncome").textContent  = fmt(income);
   document.getElementById("totExpense").textContent = fmt(expense);
   const balEl = document.getElementById("balance");
   balEl.textContent = fmt(balance);
   balEl.classList.toggle("neg", balance < 0);
-
-  renderMeter();
-  renderCatChart();
-  renderWeek();
-  renderList();
+  renderMeter(); renderCatChart(); renderWeek(); renderList();
 }
 
-const RING_C = 2 * Math.PI * 52;          // ring circumference
+const RING_C = 2 * Math.PI * 52;
 
 function renderMeter() {
   const title = document.getElementById("meterTitle");
@@ -659,19 +550,13 @@ function renderMeter() {
   const prog  = document.getElementById("ringProg");
   const pctEl = document.getElementById("ringPct");
   const subEl = document.getElementById("ringSub");
-
   prog.style.strokeDasharray = RING_C;
-
   const inPeriod = state.period === "weekly" ? inThisWeek : inThisMonth;
-  const spent = state.entries
-    .filter(e => e.kind === "expense" && inPeriod(e.date))
-    .reduce((s, e) => s + e.amount, 0);
-
+  const spent = state.entries.filter(e => e.kind === "expense" && inPeriod(e.date)).reduce((s, e) => s + e.amount, 0);
   title.textContent = state.period === "weekly" ? "Budget this week" : "Budget this month";
   const word = state.period === "weekly" ? "week" : "month";
-
   if (!state.limit || state.limit <= 0) {
-    prog.style.strokeDashoffset = RING_C;          // empty ring
+    prog.style.strokeDashoffset = RING_C;
     prog.style.stroke = "var(--line-2)";
     pctEl.textContent = "—";
     subEl.textContent = "no limit";
@@ -679,15 +564,12 @@ function renderMeter() {
     note.textContent = "Set a limit to track spending against it.";
     return;
   }
-
   const ratio = spent / state.limit;
   const pct = Math.min(ratio * 100, 100);
   const left = state.limit - spent;
-
   prog.style.strokeDashoffset = RING_C * (1 - pct / 100);
   pctEl.textContent = Math.round(ratio * 100) + "%";
   subEl.textContent = fmt(spent);
-
   if (spent > state.limit) {
     prog.style.stroke = "var(--red)";
     note.className = "meter-note over";
@@ -710,7 +592,6 @@ function renderCatChart() {
     totals[e.category] = (totals[e.category] || 0) + e.amount;
   });
   const rows = Object.entries(totals).sort((a, b) => b[1] - a[1]);
-
   if (rows.length === 0) {
     mount.innerHTML = `<p class="empty"><span class="big">🍛</span>No spending yet. Add an expense to see where your cedis go.</p>`;
     return;
@@ -731,16 +612,12 @@ function renderWeek() {
   const start = startOfWeek(new Date());
   const buckets = [0, 0, 0, 0, 0, 0, 0];
   let weekTotal = 0;
-
   state.entries.filter(e => e.kind === "expense").forEach(e => {
     const d = new Date(e.date);
     const diff = Math.floor((d - start) / 86400000);
     if (diff >= 0 && diff < 7) { buckets[diff] += e.amount; weekTotal += e.amount; }
   });
-
   document.getElementById("weekTotal").textContent = fmt(weekTotal) + " spent";
-
-  // geometry (SVG viewBox units)
   const VW = 320, VH = 120, padX = 20, padTop = 14, padBot = 22;
   const plotW = VW - 2 * padX, plotH = VH - padTop - padBot, baseY = VH - padBot;
   const max = Math.max(...buckets, 1);
@@ -748,26 +625,20 @@ function renderWeek() {
   const xAt = i => padX + (i / 6) * plotW;
   const yAt = v => padTop + (1 - v / max) * plotH;
   const pts = buckets.map((v, i) => [xAt(i), yAt(v)]);
-
   const linePath = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
   const areaPath = `M${xAt(0).toFixed(1)} ${baseY} `
     + pts.map(p => "L" + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ")
     + ` L${xAt(6).toFixed(1)} ${baseY} Z`;
-
-  // two faint gridlines (mid + baseline)
   const midY = padTop + plotH / 2;
   const grid = `
       <line class="week-grid" x1="${padX}" y1="${baseY}" x2="${VW - padX}" y2="${baseY}" />
       <line class="week-grid" x1="${padX}" y1="${midY.toFixed(1)}" x2="${VW - padX}" y2="${midY.toFixed(1)}" stroke-dasharray="2 4" />`;
-
   const dots = pts.map((p, i) => `
       <circle class="week-dot ${i === todayIdx ? "today" : ""}" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${i === todayIdx ? 4.5 : 3.5}">
         <title>${labels[i]}: ${fmt(buckets[i])}</title>
       </circle>`).join("");
-
   const lbls = labels.map((lbl, i) => `
       <text class="week-lbl ${i === todayIdx ? "today" : ""}" x="${xAt(i).toFixed(1)}" y="${VH - 4}" text-anchor="middle">${lbl}</text>`).join("");
-
   document.getElementById("weekChart").innerHTML = `
     <svg class="week-svg" viewBox="0 0 ${VW} ${VH}" role="img"
          aria-label="Line graph of daily spending this week, ${fmt(weekTotal)} total">
@@ -796,7 +667,6 @@ function renderList() {
       <span class="val ${e.kind}">${e.kind === "income" ? "+" : "−"}${fmt(e.amount)}</span>
       <button class="del" data-id="${e.id}" aria-label="Delete entry">✕</button>
     </li>`).join("");
-
   list.querySelectorAll(".del").forEach(btn => {
     btn.addEventListener("click", () => {
       state.entries = state.entries.filter(e => e.id !== +btn.dataset.id);
@@ -805,17 +675,12 @@ function renderList() {
   });
 }
 
-/* ============================================================
-   FORM WIRING
-   ============================================================ */
 let currentKind = "expense";
-
 function fillCategories() {
   const sel = document.getElementById("catIn");
   const cats = currentKind === "expense" ? EXPENSE_CATS : INCOME_CATS;
   sel.innerHTML = cats.map(c => `<option value="${c}">${iconFor(c)}  ${c}</option>`).join("");
 }
-
 document.querySelectorAll(".kind-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     currentKind = btn.dataset.kind;
@@ -823,7 +688,6 @@ document.querySelectorAll(".kind-btn").forEach(btn => {
     fillCategories();
   });
 });
-
 document.getElementById("addBtn").addEventListener("click", () => {
   const amtEl = document.getElementById("amountIn");
   const amount = parseFloat(amtEl.value);
@@ -847,15 +711,11 @@ document.getElementById("addBtn").addEventListener("click", () => {
   render();
   amtEl.focus();
 });
-
 document.getElementById("saveLimit").addEventListener("click", () => {
   state.limit = parseFloat(document.getElementById("limitInput").value) || 0;
   state.period = document.getElementById("periodSelect").value;
-  save();
-  render();
+  save(); render();
 });
-
-/* ---------- clear all (with confirm) ---------- */
 document.getElementById("clearAll").addEventListener("click", () => {
   if (state.entries.length === 0) return;
   if (confirm("Clear all entries? This can't be undone.")) {
@@ -863,8 +723,6 @@ document.getElementById("clearAll").addEventListener("click", () => {
     save(); render();
   }
 });
-
-/* ---------- export CSV ---------- */
 document.getElementById("exportCsv").addEventListener("click", () => {
   if (state.entries.length === 0) { alert("No entries to export yet."); return; }
   const header = ["Date", "Kind", "Category", "Amount", "Note"];
@@ -873,13 +731,10 @@ document.getElementById("exportCsv").addEventListener("click", () => {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = "kudi-entries.csv"; a.click();
+  a.href = url; a.download = "kabs-entries.csv"; a.click();
   URL.revokeObjectURL(url);
 });
 
-/* ============================================================
-   INIT
-   ============================================================ */
 initTheme();
 load();
 document.getElementById("dateIn").value = todayISO();
