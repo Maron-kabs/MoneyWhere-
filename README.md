@@ -1,4 +1,4 @@
-# Kudi
+# Kabs
 
 A simple budget tracker for students in Ghana () log income and spending, set limits, see where your cedis go.
 
